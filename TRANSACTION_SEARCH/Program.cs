@@ -13,6 +13,7 @@ namespace APP_CONFIG
         {
             Console.WriteLine($"\r\n==========================================================================================");
             Console.WriteLine($"{Assembly.GetEntryAssembly().GetName().Name} - Version {Assembly.GetEntryAssembly().GetName().Version}");
+            Console.WriteLine($"EXECUTION TIME : {string.Format("{0:yyyy-MM-dd HH:mm:ss}", DateTimeOffset.Now)}");
             Console.WriteLine($"==========================================================================================\r\n");
 
             IConfiguration configuration = ConfigurationLoad();

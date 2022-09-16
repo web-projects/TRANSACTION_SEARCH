@@ -10,7 +10,7 @@ namespace FILE_SORT.Helpers
     public static class TransactionSearch
     {
         private const string paymentSegmentKey = "Payment sale started, RequestID:";
-        private const string guidFinderPattern = @"(RequestID:)\s*(\ )([A-Za-z0-9]{8}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{12})";
+        private const string guidFinderPattern = @"(RequestID:)\s*(\ )([a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})";
         private static List<string> guidPaymentList;
 
         public static bool SearchTransaction(List<Tuple<string, string, string>> transactionToSearch)
