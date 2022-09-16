@@ -1,15 +1,18 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using TRANSACTION_SEARCH.Analyzers;
-using TRANSACTION_SEARCH.Helpers;
 
 namespace FILE_SORT.Helpers
 {
     public static class TransactionSearch
     {
+        private const string paymentSegmentKey = "Payment sale started, RequestID:";
+        private const string guidFinderPattern = @"(RequestID:)\s*(\ )([A-Za-z0-9]{8}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{4}-[A-Za-z0-9]{12})";
+        private static List<string> guidPaymentList;
+
         public static bool SearchTransaction(List<Tuple<string, string, string>> transactionToSearch)
         {
             bool result = false;
@@ -27,23 +30,43 @@ namespace FILE_SORT.Helpers
                 foreach ((string fileIn, string guid, string request) in transactionToSearch)
                 {
                     string fileInPath = Path.Combine(targetDir, fileIn);
-                    string fileOutPath = Path.Combine(targetDir, guid.Trim(new Char[] { '[', ']' }) + ".txt");
 
                     if (File.Exists(fileInPath))
                     {
+                        string headerString = $"========== PROCESSING FILE {fileIn} ==========";
+                        Console.WriteLine("-".PadRight(headerString.Length, '-'));
+                        Console.WriteLine(headerString);
+                        Console.WriteLine("-".PadRight(headerString.Length, '-'));
+                        Console.WriteLine();
+
                         string[] logFile = File.ReadAllLines(fileInPath);
                         List<string> logList = new List<string>(logFile);
 
-                        List<string> transactionLog = logList.FindAll(x => x.Contains(guid));
-                        File.WriteAllLines(fileOutPath, transactionLog);
+                        // setup guidPaymentList
+                        FilterPaymentSegments(logList);
 
-                        // load file to NotePad++
-                        //ProcessHelper.LoadFileToEditor(fileOutPath);
+                        if (guidPaymentList.Count > 0)
+                        {
+                            foreach (string paymentGuid in guidPaymentList)
+                            {
+                                List<string> transactionLog = logList.FindAll(x => x.Contains(paymentGuid));
 
-                        // Analyze Payload
-                        MasterAnalyzer.Analyze(guid, request, transactionLog);
+                                string fileOutPath = Path.Combine(targetDir, paymentGuid.Trim(new Char[] { '[', ']' }) + ".txt");
+                                File.WriteAllLines(fileOutPath, transactionLog);
 
-                        result = true;
+                                // load file to NotePad++
+                                //ProcessHelper.LoadFileToEditor(fileOutPath);
+
+                                // Analyze Payload
+                                MasterAnalyzer.Analyze(paymentGuid, request, transactionLog);
+
+                                result = true;
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine("NO PAYMENT REQUESTS FOUND.");
+                        }
                     }
                     else
                     {
@@ -56,6 +79,23 @@ namespace FILE_SORT.Helpers
                 Console.WriteLine($"Exception in fileReader={ex.Message}");
             }
             return result;
+        }
+
+        private static void FilterPaymentSegments(List<string> filePayload)
+        {
+            guidPaymentList = new List<string>();
+
+            List<string> transactionLog = filePayload.FindAll(x => x.Contains(paymentSegmentKey));
+
+            foreach (string transaction in transactionLog)
+            {
+                Regex rg = new Regex(guidFinderPattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+                MatchCollection match = rg.Matches(transaction);
+                if (match.Count > 0 && match[0].Groups.Count == 4)
+                {
+                    guidPaymentList.Add(match[0].Groups[3].Value);
+                }
+            }
         }
     }
 }

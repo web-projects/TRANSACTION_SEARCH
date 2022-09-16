@@ -83,7 +83,7 @@ namespace TRANSACTION_SEARCH.Analyzers
                 {
                     hasRequest = false;
                     TimeSpan duration = DateTime.Parse(item.Value.time).Subtract(DateTime.Parse(startTime));
-                    Console.WriteLine($"{requestType} => DURATION: {duration.ToString(@"mm\:ss\.FFF")}");
+                    Console.WriteLine($"{requestType} => DURATION: {duration.ToString(@"mm\:ss\.FFF").PadRight(9, '0')}");
                 }
             }
 
