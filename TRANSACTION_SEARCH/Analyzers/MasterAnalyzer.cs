@@ -6,8 +6,10 @@ namespace TRANSACTION_SEARCH.Analyzers
     {
         public static void Analyze(string guid, string request, List<string> transactionLog)
         {
-            ServicerCore.Analyze(guid, request, transactionLog);
-            DALCore.Analyze(guid, transactionLog);
+            if (ServicerCore.Analyze(guid, request, transactionLog))
+            {
+                DALCore.Analyze(guid, transactionLog);
+            }
         }
     }
 }

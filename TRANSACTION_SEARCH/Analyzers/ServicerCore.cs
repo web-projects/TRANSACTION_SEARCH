@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using TRANSACTION_SEARCH.Analyzers.Models;
 
 namespace TRANSACTION_SEARCH.Analyzers
@@ -12,7 +13,7 @@ namespace TRANSACTION_SEARCH.Analyzers
 
         private static string transactionGuid;
         private static string transactionRequest;
-        private static Dictionary<string, (string, string)> TransactionFlow = new Dictionary<string, (string, string)>();
+        private static Dictionary<string, (string message, string time)> TransactionFlow = new Dictionary<string, (string message, string time)>();
 
         private static void LoadTransactionFlow(List<string> payload)
         {
@@ -52,7 +53,7 @@ namespace TRANSACTION_SEARCH.Analyzers
             }
         }
 
-        public static void Analyze(string guid, string request, List<string> payload)
+        public static bool Analyze(string guid, string request, List<string> payload)
         {
             transactionGuid = guid;
             transactionRequest = request;
@@ -66,35 +67,38 @@ namespace TRANSACTION_SEARCH.Analyzers
             string requestType = string.Empty;
             string startTime = string.Empty;
 
-            Console.WriteLine($"{servicerCoreText} ANALYSIS for {transactionGuid} - REQUEST: `{transactionRequest}`");
+            string dalActionString = $"\"DALAction\": \"{transactionRequest}\"";
 
-            foreach (KeyValuePair<string, (string message, string time)> item in TransactionFlow)
+            // Check for DALAction presence
+            if (TransactionFlow.Values.Any(x => x.message.Contains(dalActionString)))
             {
-                if (item.Value.message.Contains($"\"DALAction\": \"{transactionRequest}\""))
+                Console.WriteLine($"{servicerCoreText} ANALYSIS for {transactionGuid} - REQUEST: `{transactionRequest}`");
+
+                foreach (KeyValuePair<string, (string message, string time)> item in TransactionFlow)
                 {
-                    foundOne = true;
-                    hasRequest = true;
-                    startTime = item.Value.time;
-                    List<string> messageDescription = new List<string>(item.Value.message.Split(' '));
-                    int index = messageDescription.FindIndex(x => x.Contains(requestTypeIdentifier));
-                    if (index > 0)
+                    if (item.Value.message.Contains(dalActionString))
                     {
-                        string[] messageSource = messageDescription[index].Split(':');
-                        requestType = $"[{messageSource[0].Trim('"').PadRight(paddingSpaces)} => {transactionRequest}]";
+                        foundOne = true;
+                        hasRequest = true;
+                        startTime = item.Value.time;
+                        List<string> messageDescription = new List<string>(item.Value.message.Split(' '));
+                        int index = messageDescription.FindIndex(x => x.Contains(requestTypeIdentifier));
+                        if (index > 0)
+                        {
+                            string[] messageSource = messageDescription[index].Split(':');
+                            requestType = $"[{messageSource[0].Trim('"').PadRight(paddingSpaces)} => {transactionRequest}]";
+                        }
+                    }
+                    else if (hasRequest)
+                    {
+                        hasRequest = false;
+                        TimeSpan duration = DateTime.Parse(item.Value.time).Subtract(DateTime.Parse(startTime));
+                        Console.WriteLine($"{requestType} :: DURATION: {duration.ToString(@"mm\:ss\.FFF")}\r\n");
                     }
                 }
-                else if (hasRequest)
-                {
-                    hasRequest = false;
-                    TimeSpan duration = DateTime.Parse(item.Value.time).Subtract(DateTime.Parse(startTime));
-                    Console.WriteLine($"{requestType} :: DURATION: {duration.ToString(@"mm\:ss\.FFF")}\r\n");
-                }
             }
 
-            if (!foundOne)
-            {
-                Console.WriteLine("None found.\r\n");
-            }
+            return foundOne;
         }
     }
 }
