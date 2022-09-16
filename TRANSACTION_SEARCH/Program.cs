@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using TRANSACTION_SEARCH.Analyzers.Models;
 
 namespace APP_CONFIG
 {
@@ -59,9 +60,14 @@ namespace APP_CONFIG
                               select filePayload.ElementAt(index++).Guid);
 
                 index = 0;
+
+                // Validate request: defaults to GetPayment when no match is found
+                RequestSchemaIndex requestInIndex;
+                Enum.TryParse(filePayload.ElementAt(index++).Request, out requestInIndex);
+
                 List<string> request = new List<string>();
                 request.AddRange(from value in filePayload
-                                 select filePayload.ElementAt(index++).Request);
+                                 select requestInIndex.ToString());
 
                 foreach (var combinedOutput in fileIn
                     .Zip(guid, (vc, vv) => Tuple.Create(vc, vv))
