@@ -86,8 +86,16 @@ namespace TRANSACTION_SEARCH.Analyzers
                     int index = messageDescription.FindIndex(x => x.Contains(requestTypeIdentifier));
                     if (index > 0)
                     {
-                        string[] messageSource = messageDescription[index].Split(':');
-                        requestType = $"[{messageSource[1].PadRight(paddingSpaces)}]";
+                        // Previous log file contained the string "from:ABCDEF" => updated to "from: ABCDEF"
+                        if (messageDescription[index].Equals(requestTypeIdentifier))
+                        {
+                            requestType = $"[{messageDescription[index + 1].PadRight(paddingSpaces)}]";
+                        }
+                        else
+                        {
+                            string[] messageSource = messageDescription[index].Split(':');
+                            requestType = $"[{messageSource[1].PadRight(paddingSpaces)}]";
+                        }
                     }
                 }
                 else if (hasRequest)
