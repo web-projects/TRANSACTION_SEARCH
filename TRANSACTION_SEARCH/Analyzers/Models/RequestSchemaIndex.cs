@@ -6,7 +6,8 @@
         GetCreditOrDebit = 1,
         GetPIN = 2,
         GetZIP = 3,
-        RemoveCard = 4,
-        DeviceUI = 5
+        GetVerifyAmount = 4,
+        RemoveCard = 5,
+        DeviceUI = 6
     }
 }
