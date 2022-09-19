@@ -13,6 +13,9 @@ namespace TRANSACTION_SEARCH.Analyzers
         private static string transactionGuid;
         private static Dictionary<string, (string, string)> TransactionFlow;
 
+        private static TimeSpan requestCumulativeTime;
+        private static TimeSpan transactionOverallTime;
+
         private static void LoadTransactionFlow(List<string> payload)
         {
             LogEntrySchema schema = null;
@@ -60,8 +63,12 @@ namespace TRANSACTION_SEARCH.Analyzers
 
             // Expect pairs for Request Start / Request Complete Pattern
             bool hasRequest = false;
+            bool waitingToComplete = false;
             string requestType = string.Empty;
-            string startTime = string.Empty;
+            string requestStartTime = string.Empty;
+            requestCumulativeTime = new TimeSpan();
+            string transactionStartTime = string.Empty;
+            transactionOverallTime = new TimeSpan();
 
             Console.WriteLine($"{dalCoreText} ANALYSIS for {transactionGuid}\r\n");
 
@@ -70,7 +77,11 @@ namespace TRANSACTION_SEARCH.Analyzers
                 if (item.Value.message.Contains("Request of MessageID:"))
                 {
                     hasRequest = true;
-                    startTime = item.Value.time;
+                    requestStartTime = item.Value.time;
+                    if (item.Value.message.Contains("GetPayment"))
+                    {
+                        transactionStartTime = requestStartTime;
+                    }
                     List<string> messageDescription = new List<string>(item.Value.message.Split(' '));
                     int index = messageDescription.FindIndex(x => x.Contains(requestTypeIdentifier));
                     if (index > 0)
@@ -82,12 +93,50 @@ namespace TRANSACTION_SEARCH.Analyzers
                 else if (hasRequest)
                 {
                     hasRequest = false;
-                    TimeSpan duration = DateTime.Parse(item.Value.time).Subtract(DateTime.Parse(startTime));
-                    Console.WriteLine($"{requestType} => DURATION: {duration.ToString(@"mm\:ss\.FFF").PadRight(9, '0')}");
+                    waitingToComplete = true;
+                    TimeSpan requestDuration = DateTime.Parse(item.Value.time).Subtract(DateTime.Parse(requestStartTime));
+
+                    Console.WriteLine($"{requestType} => RECEIVED__: {requestCumulativeTime.ToString(@"mm\:ss\.FFF").PadRight(9, '0')}");
+
+                    if (item.Value.message.Contains("Request completed."))
+                    {
+                        waitingToComplete = false;
+                        string completedStr = $"COMPLETED_: {requestDuration.ToString(@"mm\:ss\.FFF").PadRight(9, '0')}";
+                        Console.WriteLine(completedStr.PadLeft(completedStr.Length + paddingSpaces + 6));
+
+                        // cumulative time from initial transaction request (GetPayment)
+                        ProcessCumulativeTime(transactionStartTime, requestStartTime, item.Value.time);
+                    }
+                }
+                else if (waitingToComplete && item.Value.message.Contains("Request completed."))
+                {
+                    waitingToComplete = false;
+                    TimeSpan requestDuration = DateTime.Parse(item.Value.time).Subtract(DateTime.Parse(requestStartTime));
+                    string completedStr = $"COMPLETED_: {requestDuration.ToString(@"mm\:ss\.FFF").PadRight(9, '0')}";
+                    Console.WriteLine(completedStr.PadLeft(completedStr.Length + paddingSpaces + 6));
+
+                    // cumulative time from initial transaction request (GetPayment)
+                    ProcessCumulativeTime(transactionStartTime, requestStartTime, item.Value.time);
                 }
             }
 
+            // overall duration
+            Console.WriteLine("-".PadRight(45, '-'));
+            Console.WriteLine($"TOTAL DAL PROCESSING TIME ====> : {transactionOverallTime.ToString(@"mm\:ss\.FFF").PadRight(9, '0')}");
+            Console.WriteLine("-".PadRight(45, '-'));
             Console.WriteLine();
+        }
+
+        private static void ProcessCumulativeTime(string transactionStartTime, string requestStartTime, string requestDurationTime)
+        {
+            // cumulative time from initial transaction request (GetPayment)
+            TimeSpan cumulativeDuration = DateTime.Parse(requestDurationTime).Subtract(DateTime.Parse(transactionStartTime));
+            string cumulativeStr = $"CUMULATIVE: {cumulativeDuration.ToString(@"mm\:ss\.FFF").PadRight(9, '0')}";
+            Console.WriteLine(cumulativeStr.PadLeft(cumulativeStr.Length + paddingSpaces + 6));
+            // time between requests
+            requestCumulativeTime = requestCumulativeTime.Add(TimeSpan.Parse(requestDurationTime).Subtract(TimeSpan.Parse(requestStartTime)));
+            // transaction overall time
+            transactionOverallTime = TimeSpan.Parse(requestStartTime).Subtract(TimeSpan.Parse(transactionStartTime));
         }
     }
 }
