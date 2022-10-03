@@ -1,4 +1,5 @@
-﻿using FILE_SORT.Helpers;
+﻿using APP_CONFIG.Config;
+using FILE_SORT.Helpers;
 using Microsoft.Extensions.Configuration;
 using System;
 using System.Collections.Generic;
@@ -17,19 +18,22 @@ namespace APP_CONFIG
             Console.WriteLine($"EXECUTION TIME : {string.Format("{0:yyyy-MM-dd HH:mm:ss}", DateTimeOffset.Now)}");
             Console.WriteLine($"==========================================================================================\r\n");
 
-            IConfiguration configuration = ConfigurationLoad();
+            AppConfig configuration = ConfigurationLoad();
 
-            List<Tuple<string, string, string>> transactionSearch = LoadFileToSort(configuration);
-            TransactionSearch.SearchTransaction(transactionSearch);
+            //List<Tuple<string, string, string>> transactionSearch = LoadFileToSort(configuration);
+            //TransactionSearch.SearchTransaction(transactionSearch);
+
+            TransactionSearch.SearchTransaction(configuration.FileGroup);
         }
 
-        static IConfiguration ConfigurationLoad()
+        static AppConfig ConfigurationLoad()
         {
             // Get appsettings.json config.
-            IConfiguration configuration = new ConfigurationBuilder()
+            AppConfig configuration = new ConfigurationBuilder()
                 .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
                 .AddEnvironmentVariables()
-                .Build();
+                .Build()
+                .Get<AppConfig>();
 
             return configuration;
         }

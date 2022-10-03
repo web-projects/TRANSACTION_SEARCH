@@ -32,3 +32,4 @@ This an application to search for transactions in a log file based on GUID.
 
 * 20220915 - Initial repository.
 * 20220916 - Improved file handling.
+* 20221003 - Added filters.
