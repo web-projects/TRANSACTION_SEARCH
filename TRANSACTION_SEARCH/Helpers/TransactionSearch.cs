@@ -50,6 +50,7 @@ namespace FILE_SORT.Helpers
 
                         if (guidPaymentList.Count > 0)
                         {
+                            int sequenceIndex = 0;
                             foreach (string paymentGuid in guidPaymentList)
                             {
                                 List<string> transactionLog = logList.FindAll(x => x.Contains(paymentGuid));
@@ -64,7 +65,8 @@ namespace FILE_SORT.Helpers
                                     transactionLog = transactionLog.FindAll(x => !x.Contains(deviceUIListenerSignature));
                                 }
 
-                                string fileOutPath = Path.Combine(targetDir, paymentGuid.Trim(new Char[] { '[', ']' }) + ".txt");
+                                string fileOutName = string.Format("{0:D3}_{1}", ++sequenceIndex, paymentGuid.Trim(new Char[] { '[', ']' }) + ".txt");
+                                string fileOutPath = Path.Combine(targetDir, fileOutName);
                                 File.WriteAllLines(fileOutPath, transactionLog);
 
                                 // load file to NotePad++

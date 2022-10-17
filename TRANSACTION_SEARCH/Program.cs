@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using TRANSACTION_SEARCH.Analyzers.Models;
 
 namespace APP_CONFIG
@@ -24,6 +25,19 @@ namespace APP_CONFIG
             //TransactionSearch.SearchTransaction(transactionSearch);
 
             TransactionSearch.SearchTransaction(configuration.FileGroup);
+
+            Console.WriteLine("\r\n\r\nPress <ENTER> key to exit...");
+#if !DEBUG
+            ConsoleKeyInfo keypressed = Console.ReadKey(true);
+
+            while (keypressed.Key != ConsoleKey.Enter)
+            {
+                keypressed = Console.ReadKey(true);
+                Thread.Sleep(100);
+            }
+#endif
+            Console.WriteLine("APPLICATION EXITING ...");
+            Console.WriteLine("");
         }
 
         static AppConfig ConfigurationLoad()
