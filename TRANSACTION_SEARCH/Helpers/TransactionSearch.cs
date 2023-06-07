@@ -1,10 +1,12 @@
 ﻿using APP_CONFIG.Config;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using TRANSACTION_SEARCH.Analyzers;
+using TRANSACTION_SEARCH.Helpers;
 
 namespace FILE_SORT.Helpers
 {
@@ -13,6 +15,9 @@ namespace FILE_SORT.Helpers
         private const string deviceUIListenerSignature = "DeviceUI Listener";
         private const string flyweightWorkerSignature = "Flyweight Worker";
         private const string paymentSegmentKey = "Payment sale started, RequestID:";
+        private const string entryModePattern = "(\"CardEntryMethod\":)\\s*(\"[a-zA-Z]+\")";
+        private const string transactionIdPattern = "(\"TCTransactionID\":)\\s*(\"[0-9]{3}-[0-9]{10}\")";
+        private const string deviceIdentifierPattern = "(\"Manufacturer\":)(\"[a-zA-Z]+\"),(\"Model\":)(\"[a-zA-Z0-9]+\"),(\"SerialNumber\":)(\"[0-9]{9}\")";
         private const string guidFinderPattern = @"(RequestID:)\s*(\ )([a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})";
         private static List<string> guidPaymentList;
 
@@ -65,7 +70,22 @@ namespace FILE_SORT.Helpers
                                     transactionLog = transactionLog.FindAll(x => !x.Contains(deviceUIListenerSignature));
                                 }
 
-                                string fileOutName = string.Format("{0:D3}_{1}", ++sequenceIndex, paymentGuid.Trim(new Char[] { '[', ']' }) + ".txt");
+                                // Device Identifier
+                                DeviceIdentifier deviceIdentifier = FilterDeviceIdentifier(transactionLog);
+
+                                // Entry Mode
+                                string paymentEntryMode = FilterPaymentEntryMode(transactionLog);
+                                Debug.WriteLine($"PAYMENT ENTRY MODE: [{paymentEntryMode}]");
+                                string entryMode = GetTransactionEntryMode(paymentEntryMode);
+
+                                // Transaction Id
+                                string tcTransactionId = FilterTCTransactionId(transactionLog);
+                                Debug.WriteLine($"TC TRANSACTION ID : [{tcTransactionId}]");
+
+                                // filename format: SEQ_MODEL_ENTRYMODE_TCTRANSID_GUID.txt
+                                string fileOutName = string.Format("{0:D3}_{1}_{2}_{3}_{4}",
+                                    ++sequenceIndex, deviceIdentifier.ModelId.Substring(0, 4), entryMode, tcTransactionId,
+                                    paymentGuid.Trim(new Char[] { '[', ']' }) + ".txt");
                                 string fileOutPath = Path.Combine(targetDir, fileOutName);
                                 File.WriteAllLines(fileOutPath, transactionLog);
 
@@ -180,5 +200,62 @@ namespace FILE_SORT.Helpers
                 }
             }
         }
+
+        private static string FilterPaymentEntryMode(List<string> transactionLog)
+        {
+            string entryMode = string.Empty;
+            foreach (string transaction in transactionLog)
+            {
+                Regex rg = new Regex(entryModePattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+                MatchCollection match = rg.Matches(transaction);
+                if (match.Count > 0 && match[0].Groups.Count == 3)
+                {
+                    entryMode = match[0].Groups[2].Value.Trim(new Char[] { '"' });
+                    break;
+                }
+            }
+            return entryMode;
+        }
+
+        private static DeviceIdentifier FilterDeviceIdentifier(List<string> transactionLog)
+        {
+            DeviceIdentifier deviceIdentifier = new DeviceIdentifier();
+            foreach (string transaction in transactionLog)
+            {
+                Regex rg = new Regex(deviceIdentifierPattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+                MatchCollection match = rg.Matches(transaction);
+                if (match.Count > 0 && match[0].Groups.Count == 7)
+                {
+                    deviceIdentifier.Manufacturer = match[0].Groups[2].Value.Trim(new Char[] { '"' });
+                    deviceIdentifier.ModelId = match[0].Groups[4].Value.Trim(new Char[] { '"' });
+                    deviceIdentifier.SerialNumber = match[0].Groups[6].Value.Trim(new Char[] { '"' });
+                    break;
+                }
+            }
+            return deviceIdentifier;
+        }
+
+        private static string FilterTCTransactionId(List<string> transactionLog)
+        {
+            string transactionId = "NA";
+            foreach (string transaction in transactionLog)
+            {
+                Regex rg = new Regex(transactionIdPattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+                MatchCollection match = rg.Matches(transaction);
+                if (match.Count > 0 && match[0].Groups.Count == 3)
+                {
+                    transactionId = match[0].Groups[2].Value.Trim(new Char[] { '"' });
+                    break;
+                }
+            }
+            return transactionId;
+        }
+
+        private static string GetTransactionEntryMode(string entryMode) => entryMode switch
+        {
+            "EMV" => "CT",
+            "ContactlessEMV" => "CL",
+            _ => "UK"
+        };
     }
 }
