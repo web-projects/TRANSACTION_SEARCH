@@ -12,6 +12,8 @@ namespace FILE_SORT.Helpers
 {
     public static class TransactionSearch
     {
+        private const string sourceSubDirectory = "in";
+        private const string targetSubDirectory = "out";
         private const string deviceUIListenerSignature = "DeviceUI Listener";
         private const string flyweightWorkerSignature = "Flyweight Worker";
         private const string paymentSegmentKey = "Payment sale started, RequestID:";
@@ -29,15 +31,22 @@ namespace FILE_SORT.Helpers
             {
                 string exeLocation = Assembly.GetExecutingAssembly().GetName().CodeBase;
                 UriBuilder uri = new UriBuilder(exeLocation);
-                string targetDir = Path.Combine(Path.GetDirectoryName(Uri.UnescapeDataString(uri.Path)), "in");
-                if (!Directory.Exists(targetDir))
+                string sourceDir = Path.Combine(Path.GetDirectoryName(Uri.UnescapeDataString(uri.Path)), sourceSubDirectory);
+                if (!Directory.Exists(sourceDir))
                 {
-                    Directory.CreateDirectory(targetDir);
+                    Directory.CreateDirectory(sourceDir);
                 }
 
+                // Each file group gets its own subdirectory based on the base filename
                 foreach (FileGroup transaction in transactionToSearch)
                 {
-                    string fileInPath = Path.Combine(targetDir, transaction.Input);
+                    string targetDir = Path.Combine(Path.GetDirectoryName(Uri.UnescapeDataString(uri.Path)), targetSubDirectory);
+                    targetDir = Path.Combine(targetDir, Path.GetFileNameWithoutExtension(transaction.Input));
+                    if (!Directory.Exists(targetDir))
+                    {
+                        Directory.CreateDirectory(targetDir);
+                    }
+                    string fileInPath = Path.Combine(sourceDir, transaction.Input);
 
                     if (File.Exists(fileInPath))
                     {

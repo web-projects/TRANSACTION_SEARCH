@@ -8,6 +8,7 @@
         GetZIP = 3,
         GetVerifyAmount = 4,
         RemoveCard = 5,
-        DeviceUI = 6
+        DeviceUI = 6,
+        ADAMode = 7,
     }
 }
