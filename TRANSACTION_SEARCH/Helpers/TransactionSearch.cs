@@ -59,57 +59,86 @@ namespace FILE_SORT.Helpers
                         string[] logFile = File.ReadAllLines(fileInPath);
                         List<string> logList = new List<string>(logFile);
 
-                        // setup guidPaymentList
-                        FilterPaymentSegments(logList);
-
-                        if (guidPaymentList.Count > 0)
+                        // Sort by MessageId
+                        if (!string.IsNullOrWhiteSpace(transaction.MessageId))
                         {
-                            int sequenceIndex = 0;
-                            foreach (string paymentGuid in guidPaymentList)
+                            List<string> transactionLog = logList.FindAll(x => x.Contains(transaction.MessageId));
+
+                            if (transaction.FilterOut.FlightWeightWorker)
                             {
-                                List<string> transactionLog = logList.FindAll(x => x.Contains(paymentGuid));
-
-                                if (transaction.FilterOut.FlightWeightWorker)
-                                {
-                                    transactionLog = transactionLog.FindAll(x => !x.Contains(flyweightWorkerSignature));
-                                }
-
-                                if (transaction.FilterOut.DeviceUIListener)
-                                {
-                                    transactionLog = transactionLog.FindAll(x => !x.Contains(deviceUIListenerSignature));
-                                }
-
-                                // Device Identifier
-                                DeviceIdentifier deviceIdentifier = FilterDeviceIdentifier(transactionLog);
-
-                                // Entry Mode
-                                string paymentEntryMode = FilterPaymentEntryMode(transactionLog);
-                                Debug.WriteLine($"PAYMENT ENTRY MODE: [{paymentEntryMode}]");
-                                string entryMode = GetTransactionEntryMode(paymentEntryMode);
-
-                                // Transaction Id
-                                string tcTransactionId = FilterTCTransactionId(transactionLog);
-                                Debug.WriteLine($"TC TRANSACTION ID : [{tcTransactionId}]");
-
-                                // filename format: SEQ_MODEL_ENTRYMODE_TCTRANSID_GUID.txt
-                                string fileOutName = string.Format("{0:D3}_{1}_{2}_{3}_{4}",
-                                    ++sequenceIndex, deviceIdentifier.ModelId.Substring(0, 4), entryMode, tcTransactionId,
-                                    paymentGuid.Trim(new Char[] { '[', ']' }) + ".txt");
-                                string fileOutPath = Path.Combine(targetDir, fileOutName);
-                                File.WriteAllLines(fileOutPath, transactionLog);
-
-                                // load file to NotePad++
-                                //ProcessHelper.LoadFileToEditor(fileOutPath);
-
-                                // Analyze Payload
-                                MasterAnalyzer.Analyze(paymentGuid, transaction.Request, transactionLog);
-
-                                result = true;
+                                transactionLog = transactionLog.FindAll(x => !x.Contains(flyweightWorkerSignature));
                             }
+
+                            if (transaction.FilterOut.DeviceUIListener)
+                            {
+                                transactionLog = transactionLog.FindAll(x => !x.Contains(deviceUIListenerSignature));
+                            }
+
+                            // Device Identifier
+                            DeviceIdentifier deviceIdentifier = FilterDeviceIdentifier(transactionLog);
+
+                            // filename format: SEQ_MODEL_ENTRYMODE_TCTRANSID_GUID.txt
+                            string fileOutName = string.Format("{0:D3}_{1}_{2}_['{3}']",
+                                1, deviceIdentifier.ModelId.Substring(0, 4), "MESSAGEID", transaction.MessageId) + ".txt";
+                            string fileOutPath = Path.Combine(targetDir, fileOutName);
+                            File.WriteAllLines(fileOutPath, transactionLog);
+
+                            result = true;
                         }
                         else
                         {
-                            Console.WriteLine("NO PAYMENT REQUESTS FOUND.");
+                            // setup guidPaymentList
+                            FilterPaymentSegments(logList);
+
+                            if (guidPaymentList.Count > 0)
+                            {
+                                int sequenceIndex = 0;
+                                foreach (string paymentGuid in guidPaymentList)
+                                {
+                                    List<string> transactionLog = logList.FindAll(x => x.Contains(paymentGuid));
+
+                                    if (transaction.FilterOut.FlightWeightWorker)
+                                    {
+                                        transactionLog = transactionLog.FindAll(x => !x.Contains(flyweightWorkerSignature));
+                                    }
+
+                                    if (transaction.FilterOut.DeviceUIListener)
+                                    {
+                                        transactionLog = transactionLog.FindAll(x => !x.Contains(deviceUIListenerSignature));
+                                    }
+
+                                    // Device Identifier
+                                    DeviceIdentifier deviceIdentifier = FilterDeviceIdentifier(transactionLog);
+
+                                    // Entry Mode
+                                    string paymentEntryMode = FilterPaymentEntryMode(transactionLog);
+                                    Debug.WriteLine($"PAYMENT ENTRY MODE: [{paymentEntryMode}]");
+                                    string entryMode = GetTransactionEntryMode(paymentEntryMode);
+
+                                    // Transaction Id
+                                    string tcTransactionId = FilterTCTransactionId(transactionLog);
+                                    Debug.WriteLine($"TC TRANSACTION ID : [{tcTransactionId}]");
+
+                                    // filename format: SEQ_MODEL_ENTRYMODE_TCTRANSID_GUID.txt
+                                    string fileOutName = string.Format("{0:D3}_{1}_{2}_{3}_{4}",
+                                        ++sequenceIndex, deviceIdentifier.ModelId.Substring(0, 4), entryMode, tcTransactionId,
+                                        paymentGuid.Trim(new Char[] { '[', ']' }) + ".txt");
+                                    string fileOutPath = Path.Combine(targetDir, fileOutName);
+                                    File.WriteAllLines(fileOutPath, transactionLog);
+
+                                    // load file to NotePad++
+                                    //ProcessHelper.LoadFileToEditor(fileOutPath);
+
+                                    // Analyze Payload
+                                    MasterAnalyzer.Analyze(paymentGuid, transaction.Request, transactionLog);
+
+                                    result = true;
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine("NO PAYMENT REQUESTS FOUND.");
+                            }
                         }
                     }
                     else

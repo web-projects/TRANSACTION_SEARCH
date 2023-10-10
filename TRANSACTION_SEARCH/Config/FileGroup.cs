@@ -5,6 +5,7 @@
         public string Input { get; set; }
         public string Guid { get; set; }
         public string Request { get; set; }
+        public string MessageId { get; set; }
         public FilterOut FilterOut { get; set; }
     }
 }
