@@ -6,6 +6,7 @@ using System.IO;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using TRANSACTION_SEARCH.Analyzers;
+using TRANSACTION_SEARCH.Config;
 using TRANSACTION_SEARCH.Helpers;
 
 namespace FILE_SORT.Helpers
@@ -14,6 +15,7 @@ namespace FILE_SORT.Helpers
     {
         private const string sourceSubDirectory = "in";
         private const string targetSubDirectory = "out";
+        private const string paymentListenerSignature = "GetPayment Listener";
         private const string deviceUIListenerSignature = "DeviceUI Listener";
         private const string flyweightWorkerSignature = "Flyweight Worker";
         private const string paymentSegmentKey = "Payment sale started, RequestID:";
@@ -21,6 +23,9 @@ namespace FILE_SORT.Helpers
         private const string transactionIdPattern = "(\"TCTransactionID\":)\\s*(\"[0-9]{3}-[0-9]{10}\")";
         private const string deviceIdentifierPattern = "(\"Manufacturer\":)(\"[a-zA-Z]+\"),(\"Model\":)(\"[a-zA-Z0-9]+\"),(\"SerialNumber\":)(\"[0-9]{9}\")";
         private const string guidFinderPattern = @"(RequestID:)\s*(\ )([a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})";
+        private const string requestFinderPattern = @"Request of MessageID:";
+        private const string requestIdGuidPattern = @"(Request of MessageID: '[0-9]+')\s*(\ )(?:\[)([a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12})(?:\])";
+
         private static List<string> guidPaymentList;
 
         public static bool SearchTransaction(List<FileGroup> transactionToSearch)
@@ -75,20 +80,34 @@ namespace FILE_SORT.Helpers
                             }
 
                             // Device Identifier
-                            DeviceIdentifier deviceIdentifier = FilterDeviceIdentifier(transactionLog);
+                            if (transactionLog.Count > 0)
+                            {
+                                DeviceIdentifier deviceIdentifier = FilterDeviceIdentifier(transactionLog);
 
-                            // filename format: SEQ_MODEL_ENTRYMODE_TCTRANSID_GUID.txt
-                            string fileOutName = string.Format("{0:D3}_{1}_{2}_['{3}']",
-                                1, deviceIdentifier.ModelId.Substring(0, 4), "MESSAGEID", transaction.MessageId) + ".txt";
-                            string fileOutPath = Path.Combine(targetDir, fileOutName);
-                            File.WriteAllLines(fileOutPath, transactionLog);
-
+                                // filename format: SEQ_MODEL_ENTRYMODE_TCTRANSID_GUID.txt
+                                string fileOutName = string.Format("{0:D3}_{1}_{2}_['{3}']",
+                                    1, deviceIdentifier.ModelId.Substring(0, 4), "MESSAGEID", transaction.MessageId) + ".txt";
+                                string fileOutPath = Path.Combine(targetDir, fileOutName);
+                                File.WriteAllLines(fileOutPath, transactionLog);
+                            }
                             result = true;
                         }
                         else
                         {
                             // setup guidPaymentList
-                            FilterPaymentSegments(logList);
+                            switch (transaction.PaymentSegment)
+                            {
+                                case PaymentSegment.RequestId:
+                                {
+                                    FilterPaymentSegmentsWithRequestId(logList);
+                                    break;
+                                }
+                                case PaymentSegment.GUID:
+                                {
+                                    FilterPaymentSegmentsWithGUID(logList);
+                                    break;
+                                }
+                            }
 
                             if (guidPaymentList.Count > 0)
                             {
@@ -184,7 +203,7 @@ namespace FILE_SORT.Helpers
                         List<string> logList = new List<string>(logFile);
 
                         // setup guidPaymentList
-                        FilterPaymentSegments(logList);
+                        FilterPaymentSegmentsWithRequestId(logList);
 
                         if (guidPaymentList.Count > 0)
                         {
@@ -222,7 +241,7 @@ namespace FILE_SORT.Helpers
             return result;
         }
 
-        private static void FilterPaymentSegments(List<string> filePayload)
+        private static void FilterPaymentSegmentsWithRequestId(List<string> filePayload)
         {
             guidPaymentList = new List<string>();
 
@@ -231,6 +250,23 @@ namespace FILE_SORT.Helpers
             foreach (string transaction in transactionLog)
             {
                 Regex rg = new Regex(guidFinderPattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+                MatchCollection match = rg.Matches(transaction);
+                if (match.Count > 0 && match[0].Groups.Count == 4)
+                {
+                    guidPaymentList.Add(match[0].Groups[3].Value);
+                }
+            }
+        }
+
+        private static void FilterPaymentSegmentsWithGUID(List<string> filePayload)
+        {
+            guidPaymentList = new List<string>();
+
+            List<string> transactionLog = filePayload.FindAll(x => x.Contains(requestFinderPattern) && x.Contains(paymentListenerSignature));
+
+            foreach (string transaction in transactionLog)
+            {
+                Regex rg = new Regex(requestIdGuidPattern, RegexOptions.IgnoreCase | RegexOptions.Compiled);
                 MatchCollection match = rg.Matches(transaction);
                 if (match.Count > 0 && match[0].Groups.Count == 4)
                 {

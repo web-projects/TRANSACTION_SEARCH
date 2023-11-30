@@ -2,8 +2,8 @@
 {
     public class DeviceIdentifier
     {
-        public string Manufacturer { get; set; }
-        public string ModelId { get; set; }
-        public string SerialNumber { get; set; }
+        public string Manufacturer { get; set; } = "Verifone";
+        public string ModelId { get; set; } = "P200";
+        public string SerialNumber { get; set; } = "DEADBEEF";
     }
 }
